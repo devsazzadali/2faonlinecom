@@ -13,6 +13,7 @@ export default function App() {
   const [historyList, setHistoryList] = useState([]);
   const [isLoaded, setIsLoaded] = useState(false);
 
+  // ১. ইনিশিয়াল লোড (Theme এবং History)
   useEffect(() => {
     const savedTheme = localStorage.getItem("theme");
     const themeIsDark = savedTheme === "dark" || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches);
@@ -25,6 +26,38 @@ export default function App() {
     
     setIsLoaded(true);
   }, []);
+
+  // ২. হিস্ট্রি অ্যাড করার মেইন ফাংশন
+  const addToHistory = (rawEntry) => {
+    if(!rawEntry || !rawEntry.secret) return; // সিক্রেট না থাকলে সেভ হবে না
+
+    const formattedEntry = {
+      id: Date.now(),
+      name: rawEntry.name || 'Untitled Account',
+      secret: rawEntry.secret,
+      timestamp: Date.now(),
+      // সিক্রেট কি আংশিক গোপন রাখা (Privacy)
+      maskedKey: `${rawEntry.secret.substring(0, 4)}••••${rawEntry.secret.slice(-4)}`,
+      addedTime: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    };
+
+    setHistoryList(prev => {
+      const updated = [formattedEntry, ...prev].slice(0, 20); // সর্বোচ্চ ২০টি হিস্ট্রি রাখবে
+      localStorage.setItem('2fa_history', JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  // ৩. হিস্ট্রি থেকে রিস্টোর করার লজিক
+  const restoreFromHistory = (item) => {
+    // FAGen-কে সিগন্যাল পাঠানো
+    window.dispatchEvent(new CustomEvent('restoreAccount', { detail: item }));
+    
+    // হিস্ট্রি থেকে রিমুভ করা
+    const updatedHistory = historyList.filter(h => h.id !== item.id);
+    setHistoryList(updatedHistory);
+    localStorage.setItem('2fa_history', JSON.stringify(updatedHistory));
+  };
 
   if (!isLoaded) return null;
 
@@ -43,15 +76,22 @@ export default function App() {
       />
       
       <main className="max-w-6xl mx-auto px-4 py-10 space-y-12">
-        <Hero onCodeGenerate={(entry) => {/* History Update Logic */}} />
+        {/* Hero থেকে জেনারেট করলে সরাসরি হিস্ট্রিতে যাবে */}
+        <Hero onCodeGenerate={addToHistory} />
         
-        {showHistory && <History historyData={historyList} />}
+        {showHistory && (
+          <History 
+            historyData={historyList} 
+            onRestore={restoreFromHistory} 
+          />
+        )}
 
         <div className="flex justify-center overflow-hidden rounded-2xl border border-border-custom">
            <Ads />
         </div>
 
-        <FAGen />
+        {/* FAGen থেকে ডিলিট করলে হিস্ট্রিতে অ্যাড হবে */}
+        <FAGen onAccountDeleted={addToHistory} />
         
         <End />
       </main>
