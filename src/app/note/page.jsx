@@ -1,9 +1,7 @@
 "use client"
 
 import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import { MdNoteAdd, MdDelete, MdAccessTime, MdSecurity } from 'react-icons/md';
-// Header এর পাথ চেক করে নিন (আপনার components ফোল্ডার অনুযায়ী)
 import Header from '../components/Header/Header.jsx'; 
 
 const NotePage = () => {
@@ -76,38 +74,32 @@ const NotePage = () => {
           />
           <button 
             onClick={addNote}
-            className="absolute bottom-4 right-4 bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-2xl font-bold flex items-center gap-2 shadow-lg active:scale-95 transition-transform"
+            className="absolute bottom-4 right-4 bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-2xl font-bold flex items-center gap-2 shadow-lg active:scale-95 transition-all"
           >
             <MdNoteAdd size={20} /> Save Securely
           </button>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <AnimatePresence mode="popLayout">
-            {notes.map((note) => (
-              <motion.div 
-                key={note.id}
-                layout
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.9 }}
-                className="bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 p-6 rounded-3xl relative group shadow-sm hover:shadow-md transition-all"
-              >
-                <button onClick={() => deleteNote(note.id)} className="absolute top-4 right-4 text-slate-300 hover:text-red-500 transition-colors">
-                  <MdDelete size={20} />
-                </button>
-                <p className="text-sm leading-relaxed mb-6 whitespace-pre-wrap pr-6">{note.text}</p>
-                <div className="pt-4 border-t border-slate-50 dark:border-zinc-800 space-y-1">
-                  <div className="text-[10px] font-bold opacity-40 uppercase flex items-center gap-1">
-                    <MdAccessTime /> {note.addedTime}
-                  </div>
-                  <div className="text-[10px] font-bold text-red-500/60 uppercase">
-                    Expires: {note.expiryDate}
-                  </div>
+          {notes.map((note) => (
+            <div 
+              key={note.id}
+              className="bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 p-6 rounded-3xl relative group shadow-sm hover:shadow-md transition-all"
+            >
+              <button onClick={() => deleteNote(note.id)} className="absolute top-4 right-4 text-slate-300 hover:text-red-500 transition-colors">
+                <MdDelete size={20} />
+              </button>
+              <p className="text-sm leading-relaxed mb-6 whitespace-pre-wrap pr-6">{note.text}</p>
+              <div className="pt-4 border-t border-slate-50 dark:border-zinc-800 space-y-1">
+                <div className="text-[10px] font-bold opacity-40 uppercase flex items-center gap-1">
+                  <MdAccessTime /> {note.addedTime}
                 </div>
-              </motion.div>
-            ))}
-          </AnimatePresence>
+                <div className="text-[10px] font-bold text-red-500/60 uppercase">
+                  Expires: {note.expiryDate}
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       </main>
     </div>

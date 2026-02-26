@@ -1,17 +1,13 @@
 "use client"
 
 import React from "react";
-import { motion } from "framer-motion";
 
 const End = () => {
   return (
     <div className="w-full max-w-[900px] mx-auto my-12 px-4 transition-colors duration-500">
       
       {/* How to Use Section */}
-      <motion.section 
-        initial={{ opacity: 0, y: 20 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true }}
+      <section 
         className="bg-white dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 rounded-2xl p-8 mb-8 shadow-sm transition-colors"
       >
         <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">How to Use</h3>
@@ -30,7 +26,7 @@ const End = () => {
             </li>
           ))}
         </ul>
-      </motion.section>
+      </section>
 
       {/* Account Store One Main Blue Section */}
       <section className="bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30 rounded-3xl p-8 md:p-12 text-center transition-all">
@@ -63,8 +59,7 @@ const End = () => {
             { icon: "👤", title: "Aged Profiles", desc: "Established history profiles", bg: "bg-zinc-100 dark:bg-zinc-800" },
             { icon: "✅", title: "Blue Tick Pages", desc: "Enhanced credibility pages", bg: "bg-green-100/50 dark:bg-green-900/30" }
           ].map((item, i) => (
-            <motion.div 
-              whileHover={{ y: -5 }}
+            <div 
               key={i} 
               className="bg-white dark:bg-zinc-900 p-6 rounded-2xl border border-gray-200/50 dark:border-zinc-800 shadow-sm"
             >
@@ -73,7 +68,7 @@ const End = () => {
               </div>
               <h5 className="font-bold text-gray-900 dark:text-white text-sm mb-1">{item.title}</h5>
               <p className="text-xs text-gray-500 dark:text-zinc-500">{item.desc}</p>
-            </motion.div>
+            </div>
           ))}
         </div>
 
@@ -85,7 +80,7 @@ const End = () => {
           
           <div className="flex flex-wrap justify-center items-center gap-4">
             <a 
-              href="http://accountstoreone.com/" 
+              href="https://t.me/accountstoreone_official" 
               target="_blank" 
               className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-xl font-bold text-sm transition-all shadow-lg shadow-blue-500/20 active:scale-95"
             >
@@ -98,7 +93,7 @@ const End = () => {
       </section>
       
       <div className="text-center mt-10 text-gray-400 dark:text-zinc-600 text-xs font-medium">
-        © 2025 2FAOnline.com. All Rights Reserved.
+        © 2026 2FAOnline.com. All Rights Reserved.
       </div>
     </div>
   );

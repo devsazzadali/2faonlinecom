@@ -1,85 +1,86 @@
 "use client"
+import React, { useState, useEffect } from 'react';
+import { HiClock } from 'react-icons/hi';
 
-import React from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { MdHistory, MdRestore, MdInfoOutline } from 'react-icons/md';
+const History = ({ historyData = [], onRestore, onClearAll, onClose }) => {
+  const [showConfirm, setShowConfirm] = useState(false);
 
-const History = ({ historyData, onRestore }) => {
+  // আপেক্ষিক সময়ের জন্য ফাংশন (ডান পাশের ছোট ব্যাজের জন্য)
+  const getTimeAgo = (timestamp) => {
+    const diff = Math.floor((Date.now() - timestamp) / 60000);
+    if (diff < 1) return 'Just now';
+    if (diff < 60) return `${diff}m ago`;
+    const hours = Math.floor(diff / 60);
+    if (hours < 24) return `${hours}h ago`;
+    return `${Math.floor(hours / 24)}d ago`;
+  };
+
+  // সরাসরি সময় দেখানোর ফাংশন (নিচের জন্য)
+  const formatExactTime = (timestamp) => {
+    return new Date(timestamp).toLocaleTimeString([], { 
+      hour: '2-digit', 
+      minute: '2-digit',
+      hour12: true 
+    });
+  };
+
+  if (!historyData || historyData.length === 0) return null;
+
   return (
-    <div className="w-full max-w-[950px] mx-auto my-8 p-6 bg-white dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 rounded-3xl shadow-sm transition-colors duration-500">
-      
-      {/* Header Section */}
-      <div className="flex items-center justify-between mb-8">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-            <MdHistory className="text-blue-600 dark:text-blue-400 text-xl" />
-          </div>
-          <div>
-            <h3 className="text-lg font-bold text-gray-900 dark:text-white leading-tight">Recent Deleted Keys</h3>
-            <p className="text-[11px] text-gray-400 dark:text-zinc-500 font-medium tracking-wide uppercase">Click a card to restore it back to live</p>
-          </div>
-        </div>
-        
-        {/* কাউন্টার */}
-        <div className="text-[10px] font-black bg-slate-100 dark:bg-zinc-800 px-3 py-1 rounded-full text-slate-500">
-          {historyData.length} ITEMS
-        </div>
+    <div className="w-full max-w-4xl mx-auto my-6 px-3">
+      <div className="flex justify-between items-center mb-3 px-1">
+        <h2 className="text-[11px] font-bold text-slate-400 uppercase tracking-[2px] flex items-center gap-2">
+          <HiClock size={14}/> Recent History
+        </h2>
+        <button onClick={() => setShowConfirm(true)} className="text-[10px] font-bold text-red-400/70 hover:text-red-500 uppercase">Clear</button>
       </div>
-      
-      {/* History Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {historyData && historyData.length > 0 ? (
-          <AnimatePresence mode="popLayout">
-            {historyData.map((item) => (
-              <motion.div 
-                key={item.id} // App.js এ দেওয়া ইউনিক ID ব্যবহার করা হয়েছে
-                layout
-                initial={{ opacity: 0, scale: 0.95, y: 10 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.8, transition: { duration: 0.2 } }}
-                whileHover={{ scale: 1.02, y: -4 }}
-                whileTap={{ scale: 0.97 }}
-                onClick={() => onRestore(item)} // এখানে ক্লিক করলেই App.js হয়ে FAGen এ চলে যাবে
-                className="group relative cursor-pointer bg-slate-50 dark:bg-zinc-950 border border-slate-100 dark:border-zinc-800 p-5 rounded-2xl hover:border-blue-500 dark:hover:border-blue-500/50 hover:shadow-xl hover:shadow-blue-500/5 transition-all"
-              >
-                {/* Restore Badge Overlay */}
-                <div className="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 transition-all bg-blue-600 text-white text-[9px] font-black px-3 py-1 rounded-full shadow-lg transform translate-y-2 group-hover:translate-y-0">
-                  CLICK TO RESTORE
-                </div>
 
-                <div className="flex flex-col gap-1 mb-4">
-                  <span className="text-sm font-black text-slate-800 dark:text-zinc-100 truncate">
-                    {item.name || 'Unnamed Account'}
-                  </span>
-                  <span className="font-mono text-[10px] text-slate-400 dark:text-zinc-500 tracking-tighter">
-                    {item.maskedKey}
-                  </span>
-                </div>
-                
-                <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-zinc-900">
-                  <div className="flex items-center gap-1 text-[9px] font-bold text-slate-400 dark:text-zinc-600 uppercase">
-                    <MdInfoOutline size={12} />
-                    {item.addedTime}
-                  </div>
-                  <MdRestore className="text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity" size={16} />
-                </div>
-              </motion.div>
-            ))}
-          </AnimatePresence>
-        ) : (
-          /* Empty State */
-          <motion.div 
-            initial={{ opacity: 0 }} 
-            animate={{ opacity: 1 }} 
-            className="col-span-full py-20 flex flex-col items-center justify-center"
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-2.5">
+        {historyData.map((item, index) => (
+          <div 
+            key={index} 
+            onClick={() => { 
+              onRestore?.(item); 
+              onClose?.(); 
+              window.dispatchEvent(new CustomEvent('restoreAccount', {detail: item})); 
+            }}
+            className="group bg-[#f9fafb] dark:bg-[#161618] border border-slate-200/50 dark:border-[#232326] p-3 rounded-[14px] hover:bg-white dark:hover:bg-[#1c1c1f] transition-all cursor-pointer shadow-sm active:scale-[0.98]"
           >
-            <div className="w-16 h-16 bg-slate-50 dark:bg-zinc-800/50 rounded-full flex items-center justify-center mb-4">
-              <MdHistory size={32} className="text-slate-200 dark:text-zinc-700" />
+            <div className="flex justify-between items-center mb-1.5">
+              <h3 className="font-bold text-slate-800 dark:text-zinc-200 text-[13px] truncate pr-2">
+                {item.name || 'Unnamed Account'}
+              </h3>
+              {/* ডানপাশে আপেক্ষিক সময় (e.g. 5m ago) */}
+              <span className="text-[9px] text-slate-500 font-bold bg-slate-200/40 dark:bg-zinc-800 px-2 py-0.5 rounded-full shrink-0">
+                {getTimeAgo(item.deletedAt)}
+              </span>
             </div>
-            <p className="text-sm font-bold text-slate-300 dark:text-zinc-600 tracking-widest uppercase">No Deleted History</p>
-          </motion.div>
-        )}
+            
+            <div className="text-[10px] font-mono text-slate-400 dark:text-zinc-500 mb-1.5 tracking-wider">
+              {item.secret ? `${item.secret.substring(0, 4)}****${item.secret.slice(-4)}` : '••••'}
+            </div>
+            
+            {/* নিচে সরাসরি সময় (e.g. 01:24 PM) */}
+            <div className="text-[9px] text-slate-400/70 font-semibold uppercase tracking-tight flex items-center gap-1">
+              <span>Deleted at:</span>
+              <span className="text-blue-500/80">{formatExactTime(item.deletedAt)}</span>
+            </div>
+          </div>
+        ))}
       </div>
+
+      {/* Confirmation Modal */}
+      {showConfirm && (
+        <div className="fixed inset-0 z-[500] bg-black/20 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-[#1c1c1f] p-6 rounded-2xl shadow-2xl w-full max-w-[260px] text-center border">
+            <p className="font-bold text-sm mb-4">Clear History?</p>
+            <div className="flex gap-2">
+              <button onClick={() => { onClearAll(); setShowConfirm(false); }} className="flex-1 bg-red-500 text-white py-2 rounded-xl text-xs font-bold">CLEAR</button>
+              <button onClick={() => setShowConfirm(false)} className="flex-1 bg-slate-100 dark:bg-zinc-800 text-slate-600 py-2 rounded-xl text-xs font-bold">NO</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

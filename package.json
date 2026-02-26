@@ -8,6 +8,9 @@
     "start": "next start",
     "lint": "eslint"
   },
+
+
+
   "dependencies": {
     "framer-motion": "^12.23.26",
     "next": "16.1.1",

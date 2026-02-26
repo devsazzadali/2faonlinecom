@@ -1,171 +1,185 @@
 "use client"
-
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { authenticator } from 'otplib'; 
 import { HiEye, HiEyeOff, HiTrash, HiPlus } from 'react-icons/hi';
+import { MdContentCopy, MdCheck } from 'react-icons/md';
+import { LuClock3 } from 'react-icons/lu'; 
 import { motion, AnimatePresence } from 'framer-motion';
 
 const FAGen = ({ onAccountDeleted }) => {
   const [accounts, setAccounts] = useState([]);
   const [isMounted, setIsMounted] = useState(false);
+  const [seconds, setSeconds] = useState(30); 
+  const [copiedId, setCopiedId] = useState(null);
+  const [toast, setToast] = useState({ show: false, name: '' });
+  
+  const lastHistoryState = useRef({});
 
-  // ১. মাউন্ট এবং ডাটা লোড
   useEffect(() => {
     setIsMounted(true);
     const saved = localStorage.getItem('2fa_accounts_v1');
-    if (saved) {
-      setAccounts(JSON.parse(saved));
-    } else {
-      setAccounts([{ id: Date.now(), name: '', secret: '', code: '------', active: false, showSecret: false }]);
-    }
+    if (saved) setAccounts(JSON.parse(saved));
+    else setAccounts([{ id: Date.now(), name: '', secret: '', code: '------', active: false, showSecret: false }]);
+  }, []);
 
+  useEffect(() => {
     const handleRestore = (event) => {
-      const restored = event.detail;
-      setAccounts(prev => [...prev, {
-        ...restored,
-        id: Date.now(), 
-        code: '------',
-        active: false,
-        showSecret: false
-      }]);
+      const restoredItem = event.detail;
+      if (restoredItem) {
+        setAccounts(prev => {
+          const exists = prev.find(a => a.secret === restoredItem.secret);
+          if (exists) return prev;
+          const newAcc = { id: Date.now(), name: restoredItem.name, secret: restoredItem.secret, code: '------', active: true, showSecret: false };
+          return [newAcc, ...prev];
+        });
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
     };
-
     window.addEventListener('restoreAccount', handleRestore);
     return () => window.removeEventListener('restoreAccount', handleRestore);
   }, []);
 
-  // ২. লোকাল স্টোরেজে সেভ (শুধুমাত্র মাউন্ট হওয়ার পর)
   useEffect(() => {
-    if (isMounted) {
-      localStorage.setItem('2fa_accounts_v1', JSON.stringify(accounts));
-    }
+    if (isMounted) localStorage.setItem('2fa_accounts_v1', JSON.stringify(accounts));
   }, [accounts, isMounted]);
 
-  // ৩. কোড জেনারেটর ইঞ্জিন (Optimized)
   useEffect(() => {
     if (!isMounted) return;
+    const interval = setInterval(() => {
+      const epoch = Math.round(new Date().getTime() / 1000);
+      setSeconds(30 - (epoch % 30));
 
-    const updateCodes = () => {
       setAccounts(prevAccounts => 
         prevAccounts.map(acc => {
-          if (!acc.secret) return { ...acc, code: '------', active: false };
-          
-          const secret = acc.secret.replace(/\s+/g, '').toUpperCase();
-          try {
-            if (secret.length >= 16) {
-              return { ...acc, code: authenticator.generate(secret), active: true };
-            }
-          } catch (e) {
-            return { ...acc, code: 'ERROR', active: false };
+          const cleanSecret = acc.secret.replace(/\s+/g, '');
+          if (cleanSecret.length >= 8) {
+            try {
+              const newCode = authenticator.generate(cleanSecret.toUpperCase());
+              return { ...acc, code: newCode, active: true };
+            } catch (e) { return { ...acc, code: 'INVALID', active: false }; }
           }
           return { ...acc, code: '------', active: false };
         })
       );
-    };
-
-    const interval = setInterval(updateCodes, 1000);
+    }, 1000);
     return () => clearInterval(interval);
   }, [isMounted]);
 
-  // ৪. ডিলিট লজিক (Fixed)
-  const handleDelete = (id) => {
-    const accountToDelete = accounts.find(a => a.id === id);
-    
-    // যদি একাউন্টে সিক্রেট থাকে তবেই হিস্ট্রিতে পাঠাবে
-    if (accountToDelete && accountToDelete.secret && onAccountDeleted) {
-      onAccountDeleted(accountToDelete);
-    }
+  useEffect(() => {
+    accounts.forEach(acc => {
+      const currentCode = acc.code;
+      const cleanSecret = acc.secret.trim();
+      if (acc.active && currentCode !== '------' && currentCode !== 'INVALID') {
+        if (lastHistoryState.current[cleanSecret] !== currentCode) {
+          onAccountDeleted?.({ 
+            name: acc.name || 'Untitled', 
+            secret: acc.secret, 
+            code: currentCode, 
+            deletedAt: Date.now()
+          });
+          lastHistoryState.current[cleanSecret] = currentCode;
+        }
+      }
+    });
+  }, [accounts, onAccountDeleted]);
 
-    const filtered = accounts.filter(a => a.id !== id);
-    
-    // যদি সব ডিলিট হয়ে যায়, তবে একটি খালি ফর্ম দেখাবে
-    if (filtered.length === 0) {
-      setAccounts([{ id: Date.now(), name: '', secret: '', code: '------', active: false, showSecret: false }]);
-    } else {
-      setAccounts(filtered);
-    }
+  const handleDelete = (id) => {
+    setAccounts(prev => prev.filter(a => a.id !== id));
   };
 
-  const addAccount = () => {
-    setAccounts([...accounts, { id: Date.now(), name: '', secret: '', code: '------', active: false, showSecret: false }]);
+  const handleCopy = (code, id, name) => {
+    navigator.clipboard.writeText(code);
+    setCopiedId(id);
+    setToast({ show: true, name: name || 'Account' });
+    setTimeout(() => { setCopiedId(null); setToast({ show: false, name: '' }); }, 3000);
   };
 
   if (!isMounted) return null;
+  const hasActiveCode = accounts.some(acc => acc.active && acc.code !== '------');
 
   return (
-    <div className="py-12 w-full">
-      <div className="max-w-6xl mx-auto">
-        <motion.div layout className="grid grid-cols-1 md:grid-cols-2 gap-6 px-2">
-          <AnimatePresence mode='popLayout'>
-            {accounts.map((acc) => (
-              <motion.div 
-                key={acc.id}
-                layout
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.9 }}
-                className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-3xl p-6 shadow-sm flex flex-col justify-between"
-              >
-                <div>
-                  <div className="mb-4">
-                    <label className="text-[10px] uppercase tracking-widest font-bold text-slate-400 dark:text-zinc-500 mb-2 block">Account Name</label>
-                    <input
-                      className="w-full bg-slate-50 dark:bg-zinc-800/40 border border-slate-200 dark:border-zinc-700 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all dark:text-white"
-                      placeholder="e.g. Google / GitHub"
-                      value={acc.name}
-                      onChange={(e) => setAccounts(accounts.map(a => a.id === acc.id ? { ...a, name: e.target.value } : a))}
-                    />
-                  </div>
+    <div className="py-6 w-full max-w-4xl mx-auto relative font-sans text-left px-3">
+      {/* মোবাইলে ২ কলাম এবং ডেস্কটপে মিডিয়াম সাইজ ২ কলাম */}
+      <div className="grid grid-cols-2 gap-3 sm:gap-5">
+        <AnimatePresence mode='popLayout'>
+          {accounts.map((acc) => (
+            <motion.div key={acc.id} layout initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }} 
+              className="bg-white dark:bg-[#111113] border border-slate-200 dark:border-[#232326] rounded-[22px] p-3.5 sm:p-5 shadow-lg"
+            >
+              <div className="mb-3">
+                <label className="text-[9px] sm:text-[10px] font-bold text-slate-400 dark:text-[#4a4a4e] uppercase tracking-wider block mb-1">Account</label>
+                <input className="w-full bg-slate-50 dark:bg-[#18181b] border border-slate-200 dark:border-[#2d2d30] rounded-xl px-3 py-1.5 sm:py-2 text-[12px] sm:text-[14px] text-slate-900 dark:text-white outline-none" value={acc.name} placeholder="Name" onChange={(e) => setAccounts(prev => prev.map(a => a.id === acc.id ? { ...a, name: e.target.value } : a))} />
+              </div>
 
-                  <div className="mb-6">
-                    <label className="text-[10px] uppercase tracking-widest font-bold text-slate-400 dark:text-zinc-500 mb-2 block">Secret Key</label>
-                    <div className="relative">
-                      <input
-                        className="w-full bg-slate-50 dark:bg-zinc-800/40 border border-slate-200 dark:border-zinc-700 rounded-xl px-4 py-3 pr-12 text-sm font-mono tracking-tight focus:ring-2 focus:ring-blue-500 outline-none transition-all dark:text-white"
-                        type={acc.showSecret ? "text" : "password"}
-                        placeholder="Paste secret key..."
-                        value={acc.secret}
-                        onChange={(e) => setAccounts(accounts.map(a => a.id === acc.id ? { ...a, secret: e.target.value } : a))}
-                      />
-                      <button 
-                        type="button" 
-                        onClick={() => setAccounts(accounts.map(a => a.id === acc.id ? { ...a, showSecret: !a.showSecret } : a))}
-                        className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-blue-500"
-                      >
-                        {acc.showSecret ? <HiEyeOff size={18} /> : <HiEye size={18} />}
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="bg-slate-50 dark:bg-zinc-950/50 border border-slate-100 dark:border-zinc-800/50 rounded-2xl p-8 mb-6 text-center">
-                    <div className={`text-5xl font-mono font-black tracking-[4px] transition-colors duration-300 ${acc.active ? 'text-blue-600 dark:text-blue-400' : 'text-slate-200 dark:text-zinc-800'}`}>
-                      {acc.code}
-                    </div>
-                  </div>
+              <div className="mb-3">
+                <label className="text-[9px] sm:text-[10px] font-bold text-slate-400 dark:text-[#4a4a4e] uppercase tracking-wider block mb-1">Secret</label>
+                <div className="relative">
+                  <input className="w-full bg-slate-50 dark:bg-[#18181b] border border-slate-200 dark:border-[#2d2d30] rounded-xl px-3 py-1.5 sm:py-2 pr-9 font-mono text-[11px] sm:text-[13px] text-slate-900 dark:text-white outline-none" type={acc.showSecret ? "text" : "password"} value={acc.secret} placeholder="Key" onChange={(e) => setAccounts(prev => prev.map(a => a.id === acc.id ? { ...a, secret: e.target.value } : a))} />
+                  <button onClick={() => setAccounts(prev => prev.map(a => a.id === acc.id ? { ...a, showSecret: !a.showSecret } : a))} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400">
+                    {acc.showSecret ? <HiEyeOff size={16} /> : <HiEye size={16} />}
+                  </button>
                 </div>
+              </div>
 
-                <button 
-                  className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 text-[11px] font-bold transition-all border border-transparent hover:border-red-100 dark:hover:border-red-900/20"
-                  onClick={() => handleDelete(acc.id)}
-                >
-                  <HiTrash size={16} /> REMOVE ACCOUNT
-                </button>
-              </motion.div>
-            ))}
-          </AnimatePresence>
-        </motion.div>
+              <div className="bg-slate-50 dark:bg-[#0c0c0e] rounded-[16px] py-4 sm:py-7 mb-3 text-center border border-slate-100 dark:border-[#1c1c1f]">
+                <div className={`text-[22px] sm:text-[34px] font-black tracking-[2px] sm:tracking-[3px] mb-1 sm:mb-2 ${acc.active ? 'text-blue-600 dark:text-[#60a5fa]' : 'text-slate-300 dark:text-[#232326]'}`}>{acc.code}</div>
+                {acc.active && (
+                  <div className="flex items-center justify-center gap-2">
+                    <div className="flex items-center gap-1 bg-slate-900 dark:bg-[#161618] px-2 sm:px-3 py-1 rounded-lg">
+                      <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></div>
+                      <span className="text-white text-[8px] sm:text-[9px] font-bold uppercase">Active</span>
+                    </div>
+                    <button onClick={() => handleCopy(acc.code, acc.id, acc.name)} className="bg-white dark:bg-[#27272a] p-1.5 rounded-lg border border-slate-200 dark:border-[#3f3f46] active:scale-95 transition-all">
+                      {copiedId === acc.id ? <MdCheck className="text-green-600" size={16} /> : <MdContentCopy className="text-slate-500" size={16} />}
+                    </button>
+                  </div>
+                )}
+              </div>
 
-        <div className="mt-12 flex justify-center">
-          <motion.button 
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={addAccount}
-            className="flex items-center gap-3 bg-blue-600 hover:bg-blue-700 text-white px-12 py-5 rounded-full font-bold shadow-lg shadow-blue-500/20 transition-all"
-          >
-            <HiPlus size={20} /> ADD NEW ACCOUNT
-          </motion.button>
-        </div>
+              <button onClick={() => handleDelete(acc.id)} className="w-full flex items-center justify-center gap-1 text-red-500 font-bold text-[9px] sm:text-[10px] uppercase tracking-widest py-1 hover:opacity-70">
+                <HiTrash size={14} /> Remove
+              </button>
+            </motion.div>
+          ))}
+        </AnimatePresence>
       </div>
+
+      {/* টাইমার ক্যাপসুল - মিডিয়াম সাইজ */}
+      <AnimatePresence>
+        {hasActiveCode && (
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="flex justify-center mt-8">
+            <div className="bg-white dark:bg-[#111113] border border-slate-200 dark:border-[#232326] rounded-full px-5 py-2 shadow-md flex items-center gap-3">
+              <LuClock3 size={16} className={seconds < 6 ? "text-red-500 animate-pulse" : "text-blue-600"}/>
+              <span className={`text-lg font-black ${seconds < 6 ? "text-red-500" : "text-slate-900 dark:text-white"}`}>{seconds}s</span>
+              <div className="w-16 h-1.5 bg-slate-100 dark:bg-[#1c1c1f] rounded-full overflow-hidden">
+                <motion.div className={`h-full ${seconds < 6 ? 'bg-red-500' : 'bg-blue-500'}`} animate={{ width: `${(seconds / 30) * 100}%` }} transition={{ duration: 1, ease: "linear" }} />
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <div className="flex justify-center mt-6">
+        <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={() => setAccounts(prev => [...prev, { id: Date.now(), name: '', secret: '', code: '------', active: false, showSecret: false }])} 
+          className="bg-blue-600 text-white px-7 py-3 rounded-full text-sm font-bold shadow-lg flex items-center gap-2"
+        >
+          <HiPlus size={18}/> Add Account
+        </motion.button>
+      </div>
+
+      {/* Popup Notification */}
+      <AnimatePresence>
+        {toast.show && (
+          <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+            className="fixed bottom-8 right-1/2 translate-x-1/2 sm:right-8 sm:translate-x-0 z-[200] bg-white dark:bg-[#1c1c1f] shadow-xl border border-slate-100 dark:border-[#2d2d30] rounded-xl p-4 min-w-[260px]"
+          >
+            <div className="flex items-center gap-3">
+              <MdCheck className="text-green-500" size={20} />
+              <p className="text-slate-900 dark:text-white text-sm font-medium">Copied: <span className="text-blue-500">{toast.name}</span></p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
